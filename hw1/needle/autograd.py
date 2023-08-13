@@ -3,7 +3,7 @@ import needle
 from typing import List, Optional, NamedTuple, Tuple, Union
 from collections import namedtuple
 import numpy
-
+from queue import Queue
 # needle version
 LAZY_MODE = False
 TENSOR_COUNTER = 0
@@ -11,7 +11,7 @@ TENSOR_COUNTER = 0
 # NOTE: we will import numpy as the array_api
 # as the backend for our computations, this line will change in later homeworks
 import numpy as array_api
-NDArray = numpy.ndarray
+NDArray = numpy.ndarray #.....WTF.....
 
 
 class Device:
@@ -186,7 +186,7 @@ class TensorTuple(Value):
     """Represent a tuple of tensors.
 
     To keep things simple, we do not support nested tuples.
-    """
+    """ 
 
     def __len__(self):
         cdata = self.realize_cached_data()
@@ -216,7 +216,7 @@ class TensorTuple(Value):
 
 class Tensor(Value):
     grad: "Tensor"
-
+    inputs: List["Tensor"]
     def __init__(
         self,
         array,
@@ -296,6 +296,10 @@ class Tensor(Value):
     @property
     def shape(self):
         return self.realize_cached_data().shape
+    
+    @property
+    def ndim(self):
+        return len(self.shape) 
 
     @property
     def dtype(self):
@@ -410,16 +414,60 @@ def find_topo_sort(node_list: List[Value]) -> List[Value]:
     after all its predecessors are traversed due to post-order DFS, we get a topological
     sort.
     """
+    record = {}
+    for node in node_list:
+        if (node.inputs != None):
+            for son in node.inputs:
+                if son in record:
+                    record[son].append(node)
+                else:
+                    record[son] = [node]
+    head = []
+    for node in node_list:
+        if node not in record:
+            head.append(node)
+
+    topo_order = []
+    for node in head:
+        topo_sort_dfs(node, topo_order)
+    topo_order = topo_order
+    print(topo_order)
+    return topo_order
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    # raise NotImplementedError()
     ### END YOUR SOLUTION
 
 
-def topo_sort_dfs(node, visited, topo_order):
-    """Post-order DFS"""
-    ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
-    ### END YOUR SOLUTION
+def topo_sort_dfs(node: Value, topo_order: List[Value]):
+    stack = [node]
+    visited = set()
+    while stack:
+        cur = stack[-1]
+        tail = True
+        for nex in cur.inputs:
+            if nex not in visited:
+                tail = False
+                visited.add(nex)
+                stack.append(nex)
+                break
+        if tail:
+            stack.pop();
+            topo_order.append(cur)
+    return
+        # cur = stack.pop()
+        # if cur not in visited:
+        #     visited.add(cur)
+        #     topo_order.append(cur)
+        #     for nex in cur.inputs:
+        #         stack.append(nex)
+        
+        # cur = stack.pop()
+        # topo_order.append(cur)
+        # visited.add(cur)
+        # for nex in cur.inputs:
+        #     if nex not in visited:
+        #         stack.append(nex)
+            
 
 
 ##############################

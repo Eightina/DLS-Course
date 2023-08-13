@@ -3,12 +3,14 @@ import gzip
 import numpy as np
 
 import sys
-sys.path.append('python/')
+
+sys.path.append("python/")
 import needle as ndl
+from needle.autograd import Tensor
 
 
-def parse_mnist(image_filesname, label_filename):
-    """ Read an images and labels file in MNIST format.  See this page:
+def parse_mnist(image_filename: str, label_filename: str) -> tuple:
+    """Read an images and labels file in MNIST format.  See this page:
     http://yann.lecun.com/exdb/mnist/ for a description of the file format.
 
     Args:
@@ -23,19 +25,60 @@ def parse_mnist(image_filesname, label_filename):
                 dimension of the data, e.g., since MNIST images are 28x28, it
                 will be 784.  Values should be of type np.float32, and the data
                 should be normalized to have a minimum value of 0.0 and a
-                maximum value of 1.0.
+                maximum value of 1.0. The normalization should be applied uniformly
+                across the whole dataset, _not_ individual images.
 
-            y (numpy.ndarray[dypte=np.int8]): 1D numpy array containing the
-                labels of the examples.  Values should be of type np.int8 and
+            y (numpy.ndarray[dtype=np.uint8]): 1D numpy array containing the
+                labels of the examples.  Values should be of type np.uint8 and
                 for MNIST will contain the values 0-9.
     """
-    ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
-    ### END YOUR SOLUTION
+    ### BEGIN YOUR CODE
+    # get filename
+    new_paths = []
+    for path in [image_filename, label_filename]:
+        new_paths.append(path[: path.find(".gz")])
+
+    # decompressing
+    for path in new_paths:
+        with gzip.GzipFile(filename=path + ".gz", mode="rb") as uzf:
+            with open(file=path, mode="wb") as wf:
+                wf.write(uzf.read())
+            print("decompression done")
+
+    # reading X
+    with open(file=new_paths[0], mode="rb") as uzx:
+        mg_num = struct.unpack(">i", uzx.read(4))[0]
+        num_examples = struct.unpack(">i", uzx.read(4))[0]
+        height = struct.unpack(">i", uzx.read(4))[0]
+        width = struct.unpack(">i", uzx.read(4))[0]
+        input_dim = height * width
+        print(mg_num, num_examples, height, width, input_dim)
+
+        res_X = np.ndarray(shape=(num_examples, input_dim), dtype=np.dtype(np.float32))
+        temp_fmt = ">" + "B" * input_dim
+        for i in range(num_examples):
+            res_X[i] = struct.unpack(temp_fmt, uzx.read(input_dim))
+
+        # normalizing
+        res_X = res_X / (res_X.max() - res_X.min())
+        res_X = res_X + 0.5 - (res_X.min() + (res_X.max() - res_X.min()) / 2)
+
+    # reading y
+    with open(file=new_paths[1], mode="rb") as uzy:
+        mg_num = struct.unpack(">i", uzy.read(4))[0]
+        num_labels = struct.unpack(">i", uzy.read(4))[0]
+        print(mg_num, num_labels)
+
+        temp_fmt = ">" + "B" * num_labels
+        res_y = np.array(
+            struct.unpack(temp_fmt, uzy.read(num_labels)), dtype=np.dtype(np.uint8)
+        )
+
+    return (res_X, res_y)
 
 
-def softmax_loss(Z, y_one_hot):
-    """ Return softmax loss.  Note that for the purposes of this assignment,
+def softmax_loss(Z: Tensor, y_one_hot: Tensor):
+    """Return softmax loss.  Note that for the purposes of this assignment,
     you don't need to worry about "nicely" scaling the numerical properties
     of the log-sum-exp computation, but can just compute this directly.
 
@@ -51,12 +94,28 @@ def softmax_loss(Z, y_one_hot):
         Average softmax loss over the sample. (ndl.Tensor[np.float32])
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    Z_y: Tensor
+
+    # Z_y = ndl.ops.summation(
+    #     Z * y_one_hot, axes=(1,)
+    # )  # clear useless values & make it a vector
+    # Z_sum = ndl.ops.log(ndl.ops.summation(ndl.ops.exp(Z), axes=(1,)))
+    # res = ndl.ops.summation(Z_sum - Z_y, axes=(0,)) / Z.shape[0]
+    # return res
+
+    return (
+        ndl.ops.summation(
+            ndl.ops.log(ndl.ops.summation(ndl.ops.exp(Z), axes=(1,)))
+            - ndl.ops.summation(Z * y_one_hot, axes=(1,)),
+            axes=(0,),
+        )
+        / Z.shape[0]
+    )
     ### END YOUR SOLUTION
 
 
-def nn_epoch(X, y, W1, W2, lr = 0.1, batch=100):
-    """ Run a single epoch of SGD for a two-layer neural network defined by the
+def nn_epoch(X, y, W1, W2, lr=0.1, batch=100):
+    """Run a single epoch of SGD for a two-layer neural network defined by the
     weights W1 and W2 (with no bias terms):
         logits = ReLU(X * W1) * W1
     The function should use the step size lr, and the specified batch size (and
@@ -86,9 +145,10 @@ def nn_epoch(X, y, W1, W2, lr = 0.1, batch=100):
 
 ### CODE BELOW IS FOR ILLUSTRATION, YOU DO NOT NEED TO EDIT
 
-def loss_err(h,y):
-    """ Helper function to compute both loss and error"""
+
+def loss_err(h, y):
+    """Helper function to compute both loss and error"""
     y_one_hot = np.zeros((y.shape[0], h.shape[-1]))
     y_one_hot[np.arange(y.size), y] = 1
     y_ = ndl.Tensor(y_one_hot)
-    return softmax_loss(h,y_).numpy(), np.mean(h.numpy().argmax(axis=1) != y)
+    return softmax_loss(h, y_).numpy(), np.mean(h.numpy().argmax(axis=1) != y)

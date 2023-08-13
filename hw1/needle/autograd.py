@@ -400,7 +400,7 @@ def compute_gradient_of_variables(output_tensor: Tensor, out_grad: Tensor):
     node_to_output_grads_list: Dict[Tensor, List[Tensor]] = {}
     temp_grads: Tuple[Tensor]
     reverse_topo_order: List[Tensor]
-    res: List[Tensor] = []
+    # res: List[Tensor] = []
     # Special note on initializing gradient of
     # We are really taking a derivative of the scalar reduce_sum(output_node)
     # instead of the vector output_node. But this is the common case for loss function.
@@ -410,27 +410,17 @@ def compute_gradient_of_variables(output_tensor: Tensor, out_grad: Tensor):
     reverse_topo_order = list(reversed(find_topo_sort([output_tensor])))
     
     for node in reverse_topo_order:
-        # print(node)
-        # print(node.shape)
         out_grad = node_to_output_grads_list[node][0]
-        for i, adj in enumerate(node_to_output_grads_list[node]):
-            if i != 0:
-                out_grad += adj
+        for i, adj in enumerate(node_to_output_grads_list[node][1:]):
+            out_grad += adj
         node.grad = out_grad
         if node.op != None:
             temp_grads = node.op.gradient(out_grad, node)
             for (i, ipt) in enumerate(node.inputs):
                 if ipt not in node_to_output_grads_list:
-                    node_to_output_grads_list[ipt] = [temp_grads[i]] 
-                else:
-                    node_to_output_grads_list[ipt].append(temp_grads[i])
-        else:
-            res.append(out_grad)
-    return res
-                
-        
-    ### BEGIN YOUR SOLUTION
-    # raise NotImplementedError()
+                    node_to_output_grads_list[ipt] = [] 
+                node_to_output_grads_list[ipt].append(temp_grads[i])
+    return
     ### END YOUR SOLUTION
 
 

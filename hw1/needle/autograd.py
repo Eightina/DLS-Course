@@ -1,6 +1,6 @@
 """Core data structures."""
 import needle
-from typing import List, Optional, NamedTuple, Tuple, Union
+from typing import List, Optional, NamedTuple, Tuple, Union, Dict
 from collections import namedtuple
 import numpy
 from queue import Queue
@@ -66,7 +66,7 @@ class Op:
 
     def gradient(
         self, out_grad: "Value", node: "Value"
-    ) -> Union["Value", Tuple["Value"]]:
+    ) -> Tuple["Value"]:
         """Compute partial adjoint for each input value for a given output adjoint.
 
         Parameters
@@ -102,6 +102,10 @@ class TensorOp(Op):
     def __call__(self, *args):
         return Tensor.make_from_op(self, args)
 
+    def gradient(
+        self, out_grad: "Value", node: "Value"
+    ) -> Tuple["Tensor"]:
+        raise NotImplementedError()
 
 class TensorTupleOp(Op):
     """Op class specialized to output TensorTuple"""
@@ -217,6 +221,7 @@ class TensorTuple(Value):
 class Tensor(Value):
     grad: "Tensor"
     inputs: List["Tensor"]
+    op: Optional["TensorOp"]
     def __init__(
         self,
         array,
@@ -256,7 +261,7 @@ class Tensor(Value):
         return array_api.array(numpy_array, device=device, dtype=dtype)
 
     @staticmethod
-    def make_from_op(op: Op, inputs: List["Value"]):
+    def make_from_op(op: TensorOp, inputs: List["Value"]):
         tensor = Tensor.__new__(Tensor)
         tensor._init(op, inputs)
         if not LAZY_MODE:
@@ -386,13 +391,16 @@ class Tensor(Value):
     __rmatmul__ = __matmul__
 
 
-def compute_gradient_of_variables(output_tensor, out_grad):
+def compute_gradient_of_variables(output_tensor: Tensor, out_grad: Tensor):
     """Take gradient of output node with respect to each node in node_list.
 
     Store the computed result in the grad field of each Variable.
     """
     # a map from node to a list of gradient contributions from each output node
     node_to_output_grads_list: Dict[Tensor, List[Tensor]] = {}
+    temp_grads: Tuple[Tensor]
+    reverse_topo_order: List[Tensor]
+    res: List[Tensor] = []
     # Special note on initializing gradient of
     # We are really taking a derivative of the scalar reduce_sum(output_node)
     # instead of the vector output_node. But this is the common case for loss function.
@@ -400,13 +408,33 @@ def compute_gradient_of_variables(output_tensor, out_grad):
 
     # Traverse graph in reverse topological order given the output_node that we are taking gradient wrt.
     reverse_topo_order = list(reversed(find_topo_sort([output_tensor])))
-
+    
+    for node in reverse_topo_order:
+        # print(node)
+        # print(node.shape)
+        out_grad = node_to_output_grads_list[node][0]
+        for i, adj in enumerate(node_to_output_grads_list[node]):
+            if i != 0:
+                out_grad += adj
+        node.grad = out_grad
+        if node.op != None:
+            temp_grads = node.op.gradient(out_grad, node)
+            for (i, ipt) in enumerate(node.inputs):
+                if ipt not in node_to_output_grads_list:
+                    node_to_output_grads_list[ipt] = [temp_grads[i]] 
+                else:
+                    node_to_output_grads_list[ipt].append(temp_grads[i])
+        else:
+            res.append(out_grad)
+    return res
+                
+        
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    # raise NotImplementedError()
     ### END YOUR SOLUTION
 
 
-def find_topo_sort(node_list: List[Value]) -> List[Value]:
+def find_topo_sort(node_list: List[Tensor]) -> List[Tensor]:
     """Given a list of nodes, return a topological sort list of nodes ending in them.
 
     A simple algorithm is to do a post-order DFS traversal on the given nodes,
@@ -431,7 +459,7 @@ def find_topo_sort(node_list: List[Value]) -> List[Value]:
     for node in head:
         topo_sort_dfs(node, topo_order)
     topo_order = topo_order
-    print(topo_order)
+    # print(topo_order)
     return topo_order
     ### BEGIN YOUR SOLUTION
     # raise NotImplementedError()

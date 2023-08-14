@@ -449,11 +449,7 @@ def find_topo_sort(node_list: List[Tensor]) -> List[Tensor]:
     for node in head:
         topo_sort_dfs(node, topo_order)
     topo_order = topo_order
-    # print(topo_order)
     return topo_order
-    ### BEGIN YOUR SOLUTION
-    # raise NotImplementedError()
-    ### END YOUR SOLUTION
 
 
 def topo_sort_dfs(node: Value, topo_order: List[Value]):
@@ -472,22 +468,6 @@ def topo_sort_dfs(node: Value, topo_order: List[Value]):
             stack.pop();
             topo_order.append(cur)
     return
-        # cur = stack.pop()
-        # if cur not in visited:
-        #     visited.add(cur)
-        #     topo_order.append(cur)
-        #     for nex in cur.inputs:
-        #         stack.append(nex)
-        
-        # cur = stack.pop()
-        # topo_order.append(cur)
-        # visited.add(cur)
-        # for nex in cur.inputs:
-        #     if nex not in visited:
-        #         stack.append(nex)
-            
-
-
 ##############################
 ####### Helper Methods #######
 ##############################

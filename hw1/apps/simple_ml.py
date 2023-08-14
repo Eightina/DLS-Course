@@ -1,9 +1,9 @@
 import struct
 import gzip
 import numpy as np
-
+import math
 import sys
-
+import numpy as array_api
 sys.path.append("python/")
 import needle as ndl
 from needle.autograd import Tensor
@@ -138,8 +138,45 @@ def nn_epoch(X, y, W1, W2, lr=0.1, batch=100):
             W2: ndl.Tensor[np.float32]
     """
 
+    print("-" * 25)
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    def one_hot_enocoding(array: array_api.ndarray, num_classes: int):
+        return (array_api.eye(num_classes)[array])
+    
+    def norm(x: Tensor):
+        return x / x.sum(axes=(1,)).reshape((x.shape[0],1))
+        
+    # def binary(x: Tensor):
+    itr = math.ceil(X.shape[0] / batch)
+    
+    for i in range(itr):
+        
+        start = i * batch
+        end = (i + 1) * batch
+        if (end <= X.shape[0]):
+            cur_batch = batch
+        else:
+            end = X.shape[0]
+            cur_batch = end - start
+        cur_X = Tensor(X[start : end]) # ne x id
+        cur_y = one_hot_enocoding(y[start : end], W2.shape[1]) # ne x nc
+        
+        Z1 = ndl.ops.relu(cur_X @ W1) # ne x hd
+        
+        G2 = norm(ndl.ops.exp(Z1 @ W2)) - cur_y # ne x nc
+        
+        # Iy = array_api.zeros_like(G2) 
+        # Iy[np.arange(cur_batch), cur_y] = 1
+        # G2 -= Iy
+        
+        G1 = ndl.ops.binary(Z1) * (G2 @ W2.transpose())
+        
+        gradient_W1 = 1 / cur_batch * (cur_X.transpose() @ G1)
+        gradient_W2 = 1 / cur_batch * (Z1.transpose() @ G2)
+
+        W1 -= lr * gradient_W1
+        W2 -= lr * gradient_W2
+    return (W1, W2)
     ### END YOUR SOLUTION
 
 

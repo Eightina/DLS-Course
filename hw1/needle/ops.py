@@ -229,19 +229,19 @@ class MatMul(TensorOp):
         r: Tensor
         l_grad: Tensor
         r_grad: Tensor
-        
+
         (l, r) = node.inputs
         l_grad = out_grad @ r.transpose()
         r_grad = l.transpose() @ out_grad
-        
+
         if l_grad.shape != l.shape:
             l_grad = l_grad.sum(
                 tuple(range(l_grad.ndim - l.ndim))
             )  # doing summation on the dims representing batches
-            
+
         if r_grad.shape != r.shape:
             r_grad = r_grad.sum(tuple(range(r_grad.ndim - r.ndim)))
-            
+
         return (l_grad, r_grad)
         # caution! eighter of l or r can be batched like 6 * 6 * 5 * 4, 4 * 3
 
@@ -287,18 +287,33 @@ def exp(a):
     return Exp()(a)
 
 
-# class Larger()
+class Binary(TensorOp):
+    def compute(self, a: NDArray):
+        return a.astype(array_api.bool8).astype(array_api.float32)
+
+    def gradient(self, out_grad: Tensor, node: Tensor):
+        return (
+            Tensor(
+                [
+                    [0.0 for i in range(node.inputs[0].shape[1])]
+                    for j in range(node.inputs[0].shape[0])
+                ]
+            ),
+        )
 
 
-# TODO
+def binary(a):
+    return Binary()(a)
+
+
 class ReLU(TensorOp):
     def compute(self, a):
         return (array_api.abs(a) + a) / 2
 
     def gradient(self, out_grad: Tensor, node: Tensor):
-        (ipt,) = node.inputs
-        # return out_grad * (ipt > 0)
-        raise NotImplementedError()
+        return (
+            Tensor(array_api.sign(node.realize_cached_data())),
+        )
 
 
 def relu(a):

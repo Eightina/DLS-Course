@@ -1,9 +1,10 @@
 import sys
 
-sys.path.append("./python")
+sys.path.append("./needle")
 sys.path.append("./apps")
-from simple_ml import *
+from needle import *
 import numdifftools as nd
+from apps.simple_ml import *
 
 import numpy as np
 import mugrade

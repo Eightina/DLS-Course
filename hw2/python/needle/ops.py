@@ -1,7 +1,7 @@
 """Operatpr table."""
 # Global operator table.
 from numbers import Number
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from .autograd import NDArray
 from .autograd import Op, Tensor, Value, TensorOp
 from .autograd import TensorTuple, TensorTupleOp

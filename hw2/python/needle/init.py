@@ -49,25 +49,42 @@ def one_hot(n, i, device=None, dtype="float32", requires_grad=False):
 
 def xavier_uniform(fan_in, fan_out, gain=1.0, **kwargs):
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    # print(kwargs)
+    high = gain * ((6 / (fan_in + fan_out)) ** (1 / 2))
+    kwargs['low'] = -high
+    kwargs['high'] = high
+    return rand(fan_in, fan_out, **kwargs)
     ### END YOUR SOLUTION
 
 
 def xavier_normal(fan_in, fan_out, gain=1.0, **kwargs):
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    # print(kwargs)
+    
+    std = gain * ((2 / (fan_in + fan_out)) ** (1/2))
+    kwargs['std'] = std
+    return randn(fan_in, fan_out, **kwargs)
     ### END YOUR SOLUTION
 
 
 def kaiming_uniform(fan_in, fan_out, nonlinearity="relu", **kwargs):
     assert nonlinearity == "relu", "Only relu supported currently"
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    # print(kwargs)
+    gain = 2 ** (1 / 2)
+    bound = gain * ((3 / fan_in) ** (1 / 2))
+    kwargs['high'] = bound
+    kwargs['low'] = -bound
+    return rand(fan_in, fan_out, **kwargs)
     ### END YOUR SOLUTION
 
 
 def kaiming_normal(fan_in, fan_out, nonlinearity="relu", **kwargs):
     assert nonlinearity == "relu", "Only relu supported currently"
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    # print(kwargs)
+    gain = 2 ** (1 / 2)
+    std = gain * ((fan_in) ** (-1 / 2))
+    kwargs['std'] = std
+    return randn(fan_in, fan_out, **kwargs) 
     ### END YOUR SOLUTION

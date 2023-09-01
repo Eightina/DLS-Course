@@ -1,9 +1,10 @@
 """Core data structures."""
 import needle
-from typing import List, Optional, NamedTuple, Tuple, Union
+from typing import List, Optional, NamedTuple, Tuple, Union, Dict
 from collections import namedtuple
 import numpy
 from needle import init
+from queue import Queue
 
 # needle version
 LAZY_MODE = False
@@ -240,7 +241,8 @@ class TensorTuple(Value):
 
 class Tensor(Value):
     grad: "Tensor"
-
+    inputs: List["Tensor"]
+    op: Optional["TensorOp"]
     def __init__(
         self,
         array,
@@ -322,7 +324,11 @@ class Tensor(Value):
     @property
     def shape(self):
         return self.realize_cached_data().shape
-
+    
+    @property
+    def ndim(self):
+        return len(self.shape) 
+    
     @property
     def dtype(self):
         return self.realize_cached_data().dtype
@@ -407,13 +413,16 @@ class Tensor(Value):
     __rmatmul__ = __matmul__
 
 
-def compute_gradient_of_variables(output_tensor, out_grad):
+def compute_gradient_of_variables(output_tensor: Tensor, out_grad: Tensor):
     """Take gradient of output node with respect to each node in node_list.
 
     Store the computed result in the grad field of each Variable.
     """
     # a map from node to a list of gradient contributions from each output node
     node_to_output_grads_list: Dict[Tensor, List[Tensor]] = {}
+    temp_grads: Tuple[Tensor]
+    reverse_topo_order: List[Tensor]
+    # res: List[Tensor] = []
     # Special note on initializing gradient of
     # We are really taking a derivative of the scalar reduce_sum(output_node)
     # instead of the vector output_node. But this is the common case for loss function.
@@ -421,13 +430,23 @@ def compute_gradient_of_variables(output_tensor, out_grad):
 
     # Traverse graph in reverse topological order given the output_node that we are taking gradient wrt.
     reverse_topo_order = list(reversed(find_topo_sort([output_tensor])))
-
-    ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    
+    for node in reverse_topo_order:
+        out_grad = node_to_output_grads_list[node][0]
+        for i, adj in enumerate(node_to_output_grads_list[node][1:]):
+            out_grad += adj
+        node.grad = out_grad
+        if node.op != None:
+            temp_grads = node.op.gradient(out_grad, node)
+            for (i, ipt) in enumerate(node.inputs):
+                if ipt not in node_to_output_grads_list:
+                    node_to_output_grads_list[ipt] = [] 
+                node_to_output_grads_list[ipt].append(temp_grads[i])
+    return
     ### END YOUR SOLUTION
 
 
-def find_topo_sort(node_list: List[Value]) -> List[Value]:
+def find_topo_sort(node_list: List[Tensor]) -> List[Tensor]:
     """Given a list of nodes, return a topological sort list of nodes ending in them.
 
     A simple algorithm is to do a post-order DFS traversal on the given nodes,
@@ -435,18 +454,42 @@ def find_topo_sort(node_list: List[Value]) -> List[Value]:
     after all its predecessors are traversed due to post-order DFS, we get a topological
     sort.
     """
-    ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
-    ### END YOUR SOLUTION
+    record = {}
+    for node in node_list:
+        if (node.inputs != None):
+            for son in node.inputs:
+                if son in record:
+                    record[son].append(node)
+                else:
+                    record[son] = [node]
+    head = []
+    for node in node_list:
+        if node not in record:
+            head.append(node)
+
+    topo_order = []
+    for node in head:
+        topo_sort_dfs(node, topo_order)
+    topo_order = topo_order
+    return topo_order
 
 
-def topo_sort_dfs(node, visited, topo_order):
-    """Post-order DFS"""
-    ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
-    ### END YOUR SOLUTION
-
-
+def topo_sort_dfs(node: Value, topo_order: List[Value]):
+    stack = [node]
+    visited = set()
+    while stack:
+        cur = stack[-1]
+        tail = True
+        for nex in cur.inputs:
+            if nex not in visited:
+                tail = False
+                visited.add(nex)
+                stack.append(nex)
+                break
+        if tail:
+            stack.pop();
+            topo_order.append(cur)
+    return
 ##############################
 ####### Helper Methods #######
 ##############################

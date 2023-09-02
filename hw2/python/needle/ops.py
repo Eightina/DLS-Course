@@ -368,10 +368,12 @@ class ReLU(TensorOp):
         return (array_api.abs(a) + a) / 2
 
     def gradient(self, out_grad: Tensor, node: Tensor):
-        return (
-            Tensor(array_api.sign(node.realize_cached_data())),
-        )
-
+        # return (
+        #     Tensor(array_api.sign(node.realize_cached_data())),
+        # )
+        a = node.inputs[0].realize_cached_data()
+        mask = Tensor(a > 0, requires_grad=False)
+        return (out_grad * mask,)
 
 def relu(a):
     return ReLU()(a)

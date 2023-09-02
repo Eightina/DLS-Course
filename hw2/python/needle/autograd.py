@@ -368,10 +368,13 @@ class Tensor(Value):
             return needle.ops.EWiseMul()(self, other)
         else:
             return needle.ops.MulScalar(other)(self)
-
-    def __pow__(self, other):
+# 3 ** 2
+    def __pow__(self, scalar):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if isinstance(scalar, int):
+            return needle.ops.PowerScalar(scalar)(self)
+        else:
+            raise NotImplementedError
         ### END YOUR SOLUTION
 
     def __sub__(self, other):

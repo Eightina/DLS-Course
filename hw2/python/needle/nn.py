@@ -5,6 +5,7 @@ from needle.autograd import Tensor
 from needle import ops
 import needle.init as init
 import numpy as np
+from abc import ABC, abstractmethod
 
 
 class Parameter(Tensor):
@@ -49,8 +50,6 @@ def _child_modules(value: object) -> List["Module"]:
         return []
 
 
-
-
 class Module:
     def __init__(self):
         self.training = True
@@ -72,6 +71,10 @@ class Module:
         for m in self._children():
             m.training = True
 
+    @abstractmethod
+    def forward(self):
+        pass
+
     def __call__(self, *args, **kwargs):
         return self.forward(*args, **kwargs)
 
@@ -82,20 +85,50 @@ class Identity(Module):
 
 
 class Linear(Module):
-    def __init__(self, in_features, out_features, bias=True, device=None, dtype="float32"):
+    def __init__(
+        self, in_features, out_features, bias=True, device=None, dtype="float32"
+    ):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
+        self.biased = bias
+        self.device = device
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.weight = init.kaiming_uniform(
+            fan_in=self.in_features,
+            fan_out=self.out_features,
+            device=self.device
+        )
+
+        if not self.biased:
+            self.bias = None
+            return
+        self.bias = init.kaiming_uniform(
+                fan_in=self.out_features,
+                fan_out=1,
+                device=self.device
+            ).reshape(
+                (1, self.out_features)
+            )
+        # raise NotImplementedError()
         ### END YOUR SOLUTION
 
     def forward(self, X: Tensor) -> Tensor:
+        
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if not isinstance(self.bias, Tensor):
+            return (
+                X @ self.weight
+            )
+            
+        return (
+            X @ self.weight
+            + self.bias.broadcast_to(
+                (X.shape[0], self.out_features)
+            )
+        )
         ### END YOUR SOLUTION
-
 
 
 class Flatten(Module):
@@ -108,7 +141,8 @@ class Flatten(Module):
 class ReLU(Module):
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return ops.relu(x)
+        # raise NotImplementedError()
         ### END YOUR SOLUTION
 
 
@@ -130,7 +164,6 @@ class SoftmaxLoss(Module):
         ### END YOUR SOLUTION
 
 
-
 class BatchNorm1d(Module):
     def __init__(self, dim, eps=1e-5, momentum=0.1, device=None, dtype="float32"):
         super().__init__()
@@ -140,7 +173,6 @@ class BatchNorm1d(Module):
         ### BEGIN YOUR SOLUTION
         raise NotImplementedError()
         ### END YOUR SOLUTION
-
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
@@ -164,7 +196,7 @@ class LayerNorm1d(Module):
 
 
 class Dropout(Module):
-    def __init__(self, p = 0.5):
+    def __init__(self, p=0.5):
         super().__init__()
         self.p = p
 
@@ -183,6 +215,3 @@ class Residual(Module):
         ### BEGIN YOUR SOLUTION
         raise NotImplementedError()
         ### END YOUR SOLUTION
-
-
-

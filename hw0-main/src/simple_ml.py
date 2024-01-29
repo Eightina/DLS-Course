@@ -76,8 +76,11 @@ def parse_mnist(image_filename:str, label_filename:str) -> tuple:
             res_X[i] = struct.unpack(temp_fmt, uzx.read(input_dim))
             
         # normalizing 
-        res_X = res_X / (res_X.max() - res_X.min())
-        res_X  = res_X + 0.5 - (res_X.min() + (res_X.max() - res_X.min()) / 2)
+        res_X = res_X / 255.0
+        # cur_min = res_X.min()
+        # res_X = (res_X - cur_min) / (cur_max - cur_min)
+        # res_X = res_X / ( - res_X.min())
+        # res_X = res_X - res_X.min()
     
     # reading y
     with open(file=new_paths[1], mode='rb') as uzy:        
@@ -174,8 +177,8 @@ def softmax_regression_epoch(X, y, theta, lr = 0.1, batch=100):
             
         Iy = np.zeros_like(Z)
         Iy[np.arange(Z.shape[0]), cur_y] = 1
-        print(cur_X.T)
-        print(Z - Iy)
+        # print(cur_X.T)
+        # print(Z - Iy)
         debug_temp = np.matmul(cur_X.T, Z - Iy)
         gradient = lr / cur_batch * debug_temp # id x ne * ne x nc = id x nc
         

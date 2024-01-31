@@ -44,7 +44,7 @@ class TupleGetItem(TensorOp):
         in_grad = []
         for i, value in enumerate(node.inputs[0]):
             if i != index:
-                in_grad.append(zeros_like(value))
+                in_grad.append(array_api.zeros_like(value))
             else:
                 in_grad.append(out_grad)
         return MakeTensorTuple()(*in_grad)
@@ -257,10 +257,10 @@ class Summation(TensorOp):
         self.axes = axes
 
     def compute(self, a: NDArray):
-        if self.axes != None:
+        # if self.axes != None:
             # ax, = self.axes
-            return array_api.sum(a, axis=self.axes)
-        return array_api.sum(a)
+        # return array_api.sum(a)
+        return array_api.sum(a, axis=self.axes)
 
     def gradient(self, out_grad: Tensor, node: Tensor):
         # print(out_grad.shape)

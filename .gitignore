@@ -2,7 +2,7 @@
 */data
 # Prerequisites
 *.d
-
+debug.py
 # Compiled Object files
 *.slo
 *.lo

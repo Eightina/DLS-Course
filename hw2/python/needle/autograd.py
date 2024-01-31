@@ -1,6 +1,6 @@
 """Core data structures."""
 import needle
-from typing import List, Optional, NamedTuple, Tuple, Union, Dict
+from typing import List, Optional, NamedTuple, Tuple, Union, Dict, Set
 from collections import namedtuple
 import numpy
 from needle import init
@@ -435,8 +435,8 @@ def compute_gradient_of_variables(output_tensor: Tensor, out_grad: Tensor):
     reverse_topo_order = list(reversed(find_topo_sort([output_tensor])))
     
     for node in reverse_topo_order:
-        out_grad = node_to_output_grads_list[node][0]
-        for i, adj in enumerate(node_to_output_grads_list[node][1:]):
+        out_grad = 0
+        for i, adj in enumerate(node_to_output_grads_list[node]):
             out_grad += adj
         node.grad = out_grad
         if node.op != None:
@@ -457,29 +457,16 @@ def find_topo_sort(node_list: List[Tensor]) -> List[Tensor]:
     after all its predecessors are traversed due to post-order DFS, we get a topological
     sort.
     """
-    record = {}
-    for node in node_list:
-        if (node.inputs != None):
-            for son in node.inputs:
-                if son in record:
-                    record[son].append(node)
-                else:
-                    record[son] = [node]
-    head = []
-    for node in node_list:
-        if node not in record:
-            head.append(node)
+    visited = set()
 
     topo_order = []
-    for node in head:
-        topo_sort_dfs(node, topo_order)
-    topo_order = topo_order
+    for node in node_list:
+        if node not in visited:
+            topo_sort_dfs(node, topo_order, visited)
     return topo_order
 
-
-def topo_sort_dfs(node: Value, topo_order: List[Value]):
+def topo_sort_dfs(node: Value, topo_order: List[Value], visited: Set[Value]):
     stack = [node]
-    visited = set()
     while stack:
         cur = stack[-1]
         tail = True

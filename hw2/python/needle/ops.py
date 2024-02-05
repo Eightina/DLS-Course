@@ -378,20 +378,52 @@ class ReLU(TensorOp):
 def relu(a):
     return ReLU()(a)
 
-
-
 class LogSumExp(TensorOp):
     def __init__(self, axes: Optional[tuple] = None):
         self.axes = axes
 
     def compute(self, Z):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        # keepdims is important
+        maxZ = array_api.max(Z, axis = self.axes, keepdims=True)
+        res = array_api.log(
+            array_api.sum(
+                    array_api.exp(Z - maxZ),
+                    axis=self.axes,
+                    keepdims=True 
+                )
+            ) + maxZ
+        if self.axes:
+            res_shape = []
+            for i, size in enumerate(Z.shape):
+                if i not in set(self.axes):
+                    res_shape.append(size)
+            # print(res_shape)
+            return res.reshape(tuple(res_shape))
+        else:
+            return res.reshape(-1) 
+        # when axes is none, all elements are summed, so result's dimension is 1,
+        # and can be automatically reshaped by appointing the shape param to be -1
         ### END YOUR SOLUTION
 
-    def gradient(self, out_grad, node):
+    def gradient(self, out_grad: Tensor, node: Tensor):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        Z = node.inputs[0]
+        if self.axes:
+            shape = [1] * len(Z.shape)
+            s = set(self.axes)
+            j = 0
+            for i in range(len(shape)):
+                if i not in s:
+                    shape[i] = node.shape[j]
+                    j += 1
+            node_new = node.reshape(shape)
+            grad_new = out_grad.reshape(shape)
+        else:
+            node_new = node
+            grad_new = out_grad
+        # print(node.shape, Z.shape, node_new.shape, out_grad.shape)
+        return (grad_new * exp(Z - node_new),)
         ### END YOUR SOLUTION
 
 

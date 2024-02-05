@@ -371,10 +371,10 @@ class Tensor(Value):
 # 3 ** 2
     def __pow__(self, scalar):
         ### BEGIN YOUR SOLUTION
-        if isinstance(scalar, int):
-            return needle.ops.PowerScalar(scalar)(self)
+        if isinstance(scalar, Tensor):
+            raise NotImplementedError()
         else:
-            raise NotImplementedError
+            return needle.ops.PowerScalar(scalar)(self)
         ### END YOUR SOLUTION
 
     def __sub__(self, other):

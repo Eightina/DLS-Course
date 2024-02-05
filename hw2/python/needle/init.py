@@ -60,7 +60,6 @@ def xavier_uniform(fan_in, fan_out, gain=1.0, **kwargs):
 def xavier_normal(fan_in, fan_out, gain=1.0, **kwargs):
     ### BEGIN YOUR SOLUTION
     # print(kwargs)
-    
     std = gain * ((2 / (fan_in + fan_out)) ** (1/2))
     kwargs['std'] = std
     return randn(fan_in, fan_out, **kwargs)

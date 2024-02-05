@@ -4,7 +4,7 @@ from typing import List, Callable, Any
 from needle.autograd import Tensor
 from needle import ops
 import needle.init as init
-import numpy as np
+import numpy as array_api
 from abc import ABC, abstractmethod
 
 
@@ -95,22 +95,22 @@ class Linear(Module):
         self.device = device
 
         ### BEGIN YOUR SOLUTION
-        self.weight = init.kaiming_uniform(
+        self.weight = Parameter(init.kaiming_uniform(
             fan_in=self.in_features,
             fan_out=self.out_features,
             device=self.device
-        )
+        ))
 
         if not self.biased:
             self.bias = None
             return
-        self.bias = init.kaiming_uniform(
+        self.bias = Parameter(init.kaiming_uniform(
                 fan_in=self.out_features,
                 fan_out=1,
                 device=self.device
             ).reshape(
                 (1, self.out_features)
-            )
+            ))
         # raise NotImplementedError()
         ### END YOUR SOLUTION
 
@@ -132,9 +132,15 @@ class Linear(Module):
 
 
 class Flatten(Module):
-    def forward(self, X):
+    def forward(self, X: Tensor):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if len(X.shape) <= 1:
+            return X
+        
+        shape_res_mul = 1
+        for i in range(1, len(X.shape)):
+            shape_res_mul *= X.shape[i]
+        return ops.reshape(X, (X.shape[0], shape_res_mul))
         ### END YOUR SOLUTION
 
 
@@ -164,10 +170,46 @@ class Sequential(Module):
 class SoftmaxLoss(Module):
     def forward(self, logits: Tensor, y: Tensor):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        lse = ops.logsumexp(logits, axes=(1,))
+        zy = ops.summation(logits * init.one_hot(logits.shape[-1], y, requires_grad=True), axes=(1,)) 
+        return ops.summation(lse - zy) / logits.shape[0]
         ### END YOUR SOLUTION
 
+# class BatchNorm1d(Module):
+#     def __init__(self, dim, eps=1e-5, momentum=0.1, device=None, dtype="float32"):
+#         super().__init__()
+#         self.dim = dim
+#         self.eps = eps
+#         self.momentum = momentum
+#         ### BEGIN YOUR SOLUTION
+#         self.weight = Parameter(init.ones(self.dim, requires_grad=True))
+#         self.bias = Parameter(init.zeros(self.dim, requires_grad=True))
+#         self.running_mean = init.zeros(self.dim)
+#         self.running_var = init.ones(self.dim)
+#         ### END YOUR SOLUTION
 
+
+#     def forward(self, x: Tensor) -> Tensor:
+#         ### BEGIN YOUR SOLUTION
+#         batch_size = x.shape[0]
+#         mean = x.sum((0, )).reshape((self.dim)) / batch_size
+#         # NOTE array with shape (4, ) is considered as a row, so it can be brcsto (2, 4) and cannot be brcsto (4, 2)
+#         x_minus_mean = x - mean.broadcast_to(x.shape)
+#         var = (x_minus_mean ** 2).sum((0, )).reshape((self.dim)) / batch_size
+        
+#         if self.training:
+#             self.running_mean = (1 - self.momentum) * self.running_mean + self.momentum * mean.data
+#             self.running_var = (1 - self.momentum) * self.running_var + self.momentum * var.data
+
+#             x_std = ((var + self.eps) ** 0.5).broadcast_to(x.shape)
+#             x_normed = x_minus_mean / x_std
+#             return x_normed * self.weight.broadcast_to(x.shape) + self.bias.broadcast_to(x.shape)
+#         else:
+#             # NOTE no momentum here!
+#             x_normed = (x - self.running_mean) / (self.running_var + self.eps) ** 0.5
+#             # NOTE testing time also need self.weight and self.bias
+#             return x_normed * self.weight.broadcast_to(x.shape) + self.bias.broadcast_to(x.shape)
+#         ### END YOUR SOLUTION
 class BatchNorm1d(Module):
     def __init__(self, dim, eps=1e-5, momentum=0.1, device=None, dtype="float32"):
         super().__init__()
@@ -175,12 +217,33 @@ class BatchNorm1d(Module):
         self.eps = eps
         self.momentum = momentum
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.weight = Parameter(init.ones(dim, requires_grad=True))
+        self.bias = Parameter(init.zeros(dim, requires_grad=True))
+        self.running_mean = init.zeros(dim, requires_grad=False)
+        self.running_var = init.ones(dim, requires_grad=False)
         ### END YOUR SOLUTION
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        batches = x.shape[0]
+        broadcasted_b = self.bias.broadcast_to(x.shape)
+        broadcasted_w = self.weight.broadcast_to(x.shape)
+        if self.training:
+            E = x.sum(axes=(0,)).reshape((self.dim)) / batches
+            broadcasted_E = E.broadcast_to(x.shape)
+            Var = ((x - broadcasted_E) ** 2).sum(axes=(0,)).reshape((self.dim)) / batches
+            
+            self.running_mean = (1 - self.momentum) * self.running_mean + self.momentum * E.data
+            self.running_var = (1 - self.momentum) * self.running_var + self.momentum * Var.data
+            
+            x_std = (Var.broadcast_to(x.shape) + self.eps) ** 0.5
+            x_normed = (x - broadcasted_E) / x_std
+            
+        else:
+            x_normed = (x - self.running_mean.broadcast_to(x.shape)) / \
+                            ((self.runnng_var + self.eps) ** 0.5).broadcast_to(x.shape)
+                            
+        return broadcasted_w * x_normed + broadcasted_b
         ### END YOUR SOLUTION
 
 
@@ -190,12 +253,21 @@ class LayerNorm1d(Module):
         self.dim = dim
         self.eps = eps
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.weight = Parameter(init.ones((dim), requires_grad=True))
+        self.bias = Parameter(init.zeros((dim), requires_grad=True))
         ### END YOUR SOLUTION
 
     def forward(self, x: Tensor) -> Tensor:
+        # It seems that E and Var still requires grad?? Why? 
+        # Because they are calculated from x and interferes computation of y.
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        batches = x.shape[0]
+        broadcasted_E = (x.sum(axes=(1,)).reshape((batches, 1)) / self.dim).broadcast_to(x.shape)
+        broadcasted_w = self.weight.broadcast_to(x.shape)
+        broadcasted_b = self.bias.broadcast_to(x.shape)
+        Var = ((x - broadcasted_E) ** 2).sum(axes=(1,)).reshape((batches, 1)) / self.dim
+        y = broadcasted_w * ((x - broadcasted_E) / ((Var.broadcast_to(x.shape) + self.eps) ** 0.5)) + broadcasted_b
+        return y
         ### END YOUR SOLUTION
 
 

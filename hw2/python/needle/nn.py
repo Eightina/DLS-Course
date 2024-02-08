@@ -278,7 +278,11 @@ class Dropout(Module):
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if not self.training:
+            return x
+        z = init.randb(*(x.shape), p = 1 - self.p)
+        z /= 1 - self.p
+        return x * z
         ### END YOUR SOLUTION
 
 

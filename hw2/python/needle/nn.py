@@ -241,7 +241,7 @@ class BatchNorm1d(Module):
             
         else:
             x_normed = (x - self.running_mean.broadcast_to(x.shape)) / \
-                            ((self.runnng_var + self.eps) ** 0.5).broadcast_to(x.shape)
+                            ((self.running_var + self.eps) ** 0.5).broadcast_to(x.shape)
                             
         return broadcasted_w * x_normed + broadcasted_b
         ### END YOUR SOLUTION
@@ -293,5 +293,5 @@ class Residual(Module):
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return self.fn.forward(x) + x
         ### END YOUR SOLUTION

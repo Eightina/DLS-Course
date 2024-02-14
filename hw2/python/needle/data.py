@@ -1,6 +1,7 @@
-import numpy as np
+import numpy as array_api
 from .autograd import Tensor
-
+import gzip
+import struct
 from typing import Iterator, Optional, List, Sized, Union, Iterable, Any
 
 
@@ -22,9 +23,22 @@ class RandomFlipHorizontal(Transform):
             H x W x C ndarray corresponding to image flipped with probability self.p
         Note: use the provided code to provide randomness, for easier testing
         """
-        flip_img = np.random.rand() < self.p
+        flip_img = array_api.random.rand() < self.p
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        # if not flip_img:
+        #     return img 
+        # i = 0
+        # j = img.shape[1] - 1
+        # while i < j:
+        #     a = img[:, i, :].copy()
+        #     img[:, i, :] = img[:, j, :]
+        #     img[:, j, :] = a
+        #     i += 1
+        #     j -= 1
+        # return img
+        if flip_img:
+            return array_api.flip(img, axis=1)
+        return img
         ### END YOUR SOLUTION
 
 
@@ -37,12 +51,23 @@ class RandomCrop(Transform):
         Args:
              img: H x W x C NDArray of an image
         Return 
-            H x W x C NAArray of cliped image
+            H x W x C NDArray of cliped image
         Note: generate the image shifted by shift_x, shift_y specified below
         """
-        shift_x, shift_y = np.random.randint(low=-self.padding, high=self.padding+1, size=2)
+        shift_x, shift_y = array_api.random.randint(low=-self.padding, high=self.padding+1, size=2)
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        res = array_api.zeros(shape=[img.shape[0] + 2 * self.padding,
+                                    img.shape[1] + 2 * self.padding,
+                                    img.shape[2]])
+        start_x = start_y = self.padding
+        start_x += shift_x
+        start_y += shift_y
+        res[self.padding : self.padding + img.shape[0],
+            self.padding : self.padding + img.shape[1],
+            :] = img
+        return res[start_x : start_x + img.shape[0],
+                    start_y : start_y + img.shape[1],
+                    :]
         ### END YOUR SOLUTION
 
 
@@ -95,19 +120,25 @@ class DataLoader:
         self.dataset = dataset
         self.shuffle = shuffle
         self.batch_size = batch_size
-        if not self.shuffle:
-            self.ordering = np.array_split(np.arange(len(dataset)), 
-                                        range(batch_size, len(dataset), batch_size))
+        indices = array_api.arange(len(dataset))
+        if self.shuffle:
+            array_api.random.shuffle(indices)
+        self.ordering = array_api.array_split(indices, range(batch_size, len(dataset), batch_size))
 
     def __iter__(self):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.ptr = 0
         ### END YOUR SOLUTION
         return self
 
     def __next__(self):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if self.ptr == len(self.ordering):
+            raise StopIteration
+        cur_batch = self.ptr
+        self.ptr += 1
+        res = [Tensor(image) for image in self.dataset[self.ordering[cur_batch]]]
+        return tuple(res)
         ### END YOUR SOLUTION
 
 
@@ -119,17 +150,58 @@ class MNISTDataset(Dataset):
         transforms: Optional[List] = None,
     ):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        super().__init__(transforms)
+        # get filename
+        new_paths = []
+        for path in [image_filename, label_filename]:
+            new_paths.append(path[:path.find(".gz")])
+            
+        # decompressing
+        for path in new_paths:        
+            with gzip.GzipFile(filename=path+".gz", mode='rb') as uzf:
+                with open(file=path, mode = "wb") as wf:
+                    wf.write(uzf.read())
+                print('decompression done')
+                
+        # reading X      
+        with open(file=new_paths[0], mode='rb') as uzx:
+            mg_num = struct.unpack(">i", uzx.read(4))[0]
+            num_examples = struct.unpack(">i", uzx.read(4))[0]
+            height = struct.unpack(">i", uzx.read(4))[0]
+            width = struct.unpack(">i", uzx.read(4))[0]
+            input_dim = height * width
+            print(mg_num, num_examples, height, width, input_dim)
+            
+            res_X = array_api.ndarray(shape=(num_examples, input_dim), dtype=array_api.dtype(array_api.float32))
+            temp_fmt = ">" + "B" * input_dim
+            for i in range(num_examples):
+                res_X[i] = struct.unpack(temp_fmt, uzx.read(input_dim))
+            # normalizing 
+            self.images = res_X / 255.0
+            
+        # reading y
+        with open(file=new_paths[1], mode='rb') as uzy:        
+            mg_num = struct.unpack(">i", uzy.read(4))[0]
+            num_labels = struct.unpack(">i", uzy.read(4))[0]
+            print(mg_num, num_labels)
+            
+            temp_fmt = ">" + "B" * num_labels
+            self.labels = array_api.array(struct.unpack(temp_fmt, uzy.read(num_labels)), dtype=array_api.dtype(array_api.uint8))
+        
+        
         ### END YOUR SOLUTION
 
     def __getitem__(self, index) -> object:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        (res_X, res_y) = (self.images[index], self.labels[index])
+        if self.transforms:
+            res_X = self.apply_transforms(res_X.reshape((28, 28, -1))).reshape(-1, 28 * 28)
+        return (res_X, res_y)
         ### END YOUR SOLUTION
 
     def __len__(self) -> int:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return len(self.images)
         ### END YOUR SOLUTION
 
 class NDArrayDataset(Dataset):

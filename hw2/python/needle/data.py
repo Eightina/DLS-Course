@@ -3,7 +3,7 @@ from .autograd import Tensor
 import gzip
 import struct
 from typing import Iterator, Optional, List, Sized, Union, Iterable, Any
-
+NDArray = array_api.ndarray
 
 class Transform:
     def __call__(self, x):
@@ -149,6 +149,9 @@ class MNISTDataset(Dataset):
         label_filename: str,
         transforms: Optional[List] = None,
     ):
+        self.images: NDArray
+        self.labels: NDArray
+        
         ### BEGIN YOUR SOLUTION
         super().__init__(transforms)
         # get filename

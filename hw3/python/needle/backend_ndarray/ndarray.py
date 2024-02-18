@@ -386,7 +386,7 @@ class NDArray:
         new_shape = [0 for _ in range(len(idxs))]
         new_offset = 0
         new_stride = NDArray.compact_strides(new_shape)
-        for (i, sls) in idxs:
+        for (i, sls) in enumerate(idxs):
             new_shape[i] = (sls[1] - sls[0]) // sls[2]
             new_offset += sls[0] * self._strides[i]
             new_stride[i] *= sls[2]

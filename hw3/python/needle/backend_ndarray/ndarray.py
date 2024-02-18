@@ -281,10 +281,10 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        new_shape = [0 for _ in len(self._shape)]
+        new_shape = [0 for _ in len(new_axes)]
         for (i, axis) in enumerate(new_axes):
             new_shape[i] = self._shape[axis]
-        return self.reshape(new_shape)
+        return self.reshape(tuple(new_shape))
         ### END YOUR SOLUTION
 
     def broadcast_to(self, new_shape):
@@ -383,15 +383,15 @@ class NDArray:
         assert len(idxs) == self.ndim, "Need indexes equal to number of dimensions"
 
         ### BEGIN YOUR SOLUTION
-        new_shape = [0 for _ in range(len(idxs))]
+        new_shape = tuple([0 for _ in range(len(idxs))])
         new_offset = 0
-        new_stride = NDArray.compact_strides(new_shape)
+        new_stride = list(NDArray.compact_strides(new_shape))
         for (i, sls) in enumerate(idxs):
-            new_shape[i] = (sls[1] - sls[0]) // sls[2]
-            new_offset += sls[0] * self._strides[i]
-            new_stride[i] *= sls[2]
+            new_shape[i] = (sls.stop - sls.start) // sls.step
+            new_offset += sls.start * self._strides[i]
+            new_stride[i] *= sls.step
         return NDArray.make(
-            shape=new_shape, strides=new_stride, device=self._device, handle=self._handle, offset=self.new_offset
+            shape=new_shape, strides=list(new_stride), device=self._device, handle=self._handle, offset=self.new_offset
         )
         ### END YOUR SOLUTION
 

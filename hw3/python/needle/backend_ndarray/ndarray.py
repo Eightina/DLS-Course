@@ -281,10 +281,9 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        new_shape = [0 for _ in range(len(new_axes))]
-        for (i, axis) in enumerate(new_axes):
-            new_shape[i] = self._shape[axis]
-        return self.reshape(tuple(new_shape))
+        new_strides = tuple([self.strides[i] for i in new_axes])
+        new_shape = tuple([self.shape[i] for i in new_axes])
+        return self.as_strided(new_shape, new_strides)
         ### END YOUR SOLUTION
 
     def broadcast_to(self, new_shape):
@@ -391,7 +390,7 @@ class NDArray:
             new_offset += sls.start * self._strides[i]
             new_stride[i] *= sls.step
         return NDArray.make(
-            shape=tuple(new_shape), strides=list(new_stride), device=self._device, handle=self._handle, offset=self.new_offset
+            shape=tuple(new_shape), strides=list(new_stride), device=self._device, handle=self._handle, offset=new_offset
         )
         ### END YOUR SOLUTION
 

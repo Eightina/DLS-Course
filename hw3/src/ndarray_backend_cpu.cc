@@ -62,7 +62,25 @@ void Compact(const AlignedArray& a, AlignedArray* out, std::vector<int32_t> shap
    *  function will implement here, so we won't repeat this note.)
    */
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  size_t compact_size = out->size;
+  const scalar_t* in = a.ptr + offset;
+  std::vector<int32_t> coord(shape.size(), 0);
+  for (int32_t i = 0; i < compact_size; ++i) {
+    int32_t idx = 0;
+    for (int32_t j = 0; j < coord.size(); ++j) {
+      idx += coord[j] * strides[j];
+    }
+    out->ptr[i] = in[idx];
+    
+    // compute next location
+    ++coord[coord.size() - 1];
+    for (int32_t j = coord.size() - 1; j >= 0; --j) {
+      if (coord[j] == shape[j]) {
+        coord[j] = 0;
+        if (j > 0) ++coord[j - 1];
+      }
+    }
+  }
   /// END SOLUTION
 }
 
@@ -79,7 +97,26 @@ void EwiseSetitem(const AlignedArray& a, AlignedArray* out, std::vector<int32_t>
    *   offset: offset of the *out* array (not a, which has zero offset, being compact)
    */
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  const scalar_t* i_p = a.ptr + offset;
+  scalar_t* o_p = out->ptr;
+  size_t iters = out->size;
+  std::vector<int32_t> coord(shape.size(), 0);
+  for (int i = 0; i < iters; ++i) {
+    int32_t idx = 0;
+    for (int32_t j = 0; j < coord.size(); ++j) {
+      idx += coord[j] * strides[j];
+    }
+    o_p[idx] = i_p[i];
+
+    // compute next location
+    ++coord[coord.size() - 1];
+    for (int32_t j = coord.size() - 1; j >= 0; --j) {
+      if (coord[j] == shape[j]) {
+        coord[j] = 0;
+        if (j > 0) ++coord[j - 1];
+      }
+    }
+  }
   /// END SOLUTION
 }
 
@@ -100,7 +137,25 @@ void ScalarSetitem(const size_t size, scalar_t val, AlignedArray* out, std::vect
    */
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  scalar_t* o_p = out->ptr;
+  size_t iters = out->size;
+  std::vector<int32_t> coord(shape.size(), 0);
+  for (int i = 0; i < iters; ++i) {
+    int32_t idx = 0;
+    for (int32_t j = 0; j < coord.size(); ++j) {
+      idx += coord[j] * strides[j];
+    }
+    o_p[idx] = val;
+
+    // compute next location
+    ++coord[coord.size() - 1];
+    for (int32_t j = coord.size() - 1; j >= 0; --j) {
+      if (coord[j] == shape[j]) {
+        coord[j] = 0;
+        if (j > 0) ++coord[j - 1];
+      }
+    }
+  }
   /// END SOLUTION
 }
 

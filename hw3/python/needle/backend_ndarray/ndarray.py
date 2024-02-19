@@ -384,13 +384,14 @@ class NDArray:
         ### BEGIN YOUR SOLUTION
         new_shape = [0 for _ in range(len(idxs))]
         new_offset = 0
-        new_stride = list(NDArray.compact_strides(new_shape))
         for (i, sls) in enumerate(idxs):
             new_shape[i] = (sls.stop - sls.start) // sls.step
             new_offset += sls.start * self._strides[i]
-            new_stride[i] *= sls.step
+        print(idxs)
+        print(self._shape, new_shape)
+  
         return NDArray.make(
-            shape=tuple(new_shape), strides=list(new_stride), device=self._device, handle=self._handle, offset=new_offset
+            shape=tuple(new_shape), strides=self._strides, device=self._device, handle=self._handle, offset=new_offset
         )
         ### END YOUR SOLUTION
 

@@ -281,7 +281,16 @@ void Matmul(const AlignedArray& a, const AlignedArray& b, AlignedArray* out, uin
    */
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  size_t M = m, K = n, N = p;
+  memset(out->ptr, 0.0f, M * N * sizeof(scalar_t));
+  for (size_t k = 0; k < K; ++k) {
+      for (size_t i = 0; i < M; ++i) {
+          scalar_t r1 = a.ptr[i * K + k];
+          for (size_t j = 0; j < N; ++j) {
+              out->ptr[i * N + j] += r1 * b.ptr[k * N + j];
+          }
+      }
+  }
   /// END SOLUTION
 }
 
@@ -311,7 +320,15 @@ inline void AlignedDot(const float* __restrict__ a,
   out = (float*)__builtin_assume_aligned(out, TILE * ELEM_SIZE);
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  memset(out, 0.0f, TILE * TILE * sizeof(float));
+  for (size_t k = 0; k < TILE; ++k) {
+      for (size_t i = 0; i < TILE; ++i) {
+          float r1 = a[i * TILE + k];
+          for (size_t j = 0; j < TILE; ++j) {
+              out[i * TILE + j] += r1 * b[k * TILE + j];
+          }
+      }
+  }
   /// END SOLUTION
 }
 
@@ -337,7 +354,16 @@ void MatmulTiled(const AlignedArray& a, const AlignedArray& b, AlignedArray* out
    *
    */
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  memset(out->ptr, 0.0f, m * p * sizeof(scalar_t));
+  for (int i = 0; i < m / TILE; i++) {
+    for (int j = 0; j < p / TILE; j++) {
+      for (int k = 0; k < n / TILE; k++) {
+        AlignedDot(&a.ptr[i * n * TILE + k * TILE * TILE], 
+                   &b.ptr[k * p * TILE + j * TILE * TILE], 
+                   &out->ptr[i * p * TILE + j * TILE * TILE]);
+      }
+    }
+  }
   /// END SOLUTION
 }
 
@@ -352,7 +378,13 @@ void ReduceMax(const AlignedArray& a, AlignedArray* out, size_t reduce_size) {
    */
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  for (int i = 0; i < out->size; ++i) {
+    scalar_t max = a.ptr[i * reduce_size];
+    for (int j = 0; j < reduce_size; ++j) {
+      max = std::max(max, a.ptr[i * reduce_size + j]);
+    }
+    out->ptr[i] = max;
+  }
   /// END SOLUTION
 }
 
@@ -367,7 +399,13 @@ void ReduceSum(const AlignedArray& a, AlignedArray* out, size_t reduce_size) {
    */
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  for (int i = 0; i < out->size; ++i) {
+    scalar_t sum = 0;
+    for (int j = 0; j < reduce_size; ++j) {
+      sum += a.ptr[i * reduce_size + j];
+    }
+    out->ptr[i] = sum;
+  }
   /// END SOLUTION
 }
 
@@ -426,9 +464,9 @@ PYBIND11_MODULE(ndarray_backend_cpu, m) {
   m.def("ewise_exp", EwiseExp);
   m.def("ewise_tanh", EwiseTanh);
 
-  // m.def("matmul", Matmul);
-  // m.def("matmul_tiled", MatmulTiled);
+  m.def("matmul", Matmul);
+  m.def("matmul_tiled", MatmulTiled);
 
-  // m.def("reduce_max", ReduceMax);
-  // m.def("reduce_sum", ReduceSum);
+  m.def("reduce_max", ReduceMax);
+  m.def("reduce_sum", ReduceSum);
 }

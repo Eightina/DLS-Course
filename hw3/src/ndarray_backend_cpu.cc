@@ -43,7 +43,26 @@ void Fill(AlignedArray* out, scalar_t val) {
   }
 }
 
-
+#define _SingleArrayOperation(iters, outptr, inptr, operation, val)         \
+  for (size_t i = 0; i < iters; i++) {                                      \
+    outptr[i] = inptr[i] operation val;                                     \
+  }                                                                    
+#define _SingleArrayFunction(iters, outptr, inptr, function)                \
+  for (size_t i = 0; i < iters; i++) {                                      \
+    outptr[i] = function(inptr[i]);                                         \
+  } 
+#define _SingleArrayFunction_param(iters, outptr, inptr, function, val)     \
+  for (size_t i = 0; i < iters; i++) {                                      \
+    outptr[i] = function(inptr[i], val);                                    \
+  } 
+#define _DoubleArrayOperation(iters, outptr, inptr0, operation, inptr1)     \
+  for (size_t i = 0; i < iters; i++) {                                      \
+    outptr[i] = inptr0[i] operation inptr1[i];                              \
+  } 
+#define _DoubleArrayFunction(iters, outptr, inptr0, inptr1, function)       \
+  for (size_t i = 0; i < iters; i++) {                                      \
+    outptr[i] = function(inptr0[i], inptr1[i]);                             \
+  } 
 
 void Compact(const AlignedArray& a, AlignedArray* out, std::vector<int32_t> shape,
              std::vector<int32_t> strides, size_t offset) {
@@ -160,18 +179,14 @@ void EwiseAdd(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
   /**
    * Set entries in out to be the sum of correspondings entires in a and b.
    */
-  for (size_t i = 0; i < a.size; i++) {
-    out->ptr[i] = a.ptr[i] + b.ptr[i];
-  }
+  _DoubleArrayOperation(a.size, out->ptr, a.ptr, +, b.ptr);
 }
 
 void ScalarAdd(const AlignedArray& a, scalar_t val, AlignedArray* out) {
   /**
    * Set entries in out to be the sum of corresponding entry in a plus the scalar val.
    */
-  for (size_t i = 0; i < a.size; i++) {
-    out->ptr[i] = a.ptr[i] + val;
-  }
+  _SingleArrayOperation(a.size, out->ptr, a.ptr, +, val);
 }
 
 
@@ -194,7 +209,61 @@ void ScalarAdd(const AlignedArray& a, scalar_t val, AlignedArray* out) {
  * functions (however you want to do so, as long as the functions match the proper)
  * signatures above.
  */
+void EwiseMul(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
+  _DoubleArrayOperation(a.size, out->ptr, a.ptr, *, b.ptr);
+}
 
+void ScalarMul(const AlignedArray& a, scalar_t val, AlignedArray* out) {
+  _SingleArrayOperation(a.size, out->ptr, a.ptr, *, val);
+}
+
+void EwiseDiv(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
+  _DoubleArrayOperation(a.size, out->ptr, a.ptr, /, b.ptr);
+}
+
+void ScalarDiv(const AlignedArray& a, scalar_t val, AlignedArray* out) {
+  _SingleArrayOperation(a.size, out->ptr, a.ptr, /, val);
+}
+
+void ScalarPower(const AlignedArray& a, scalar_t val, AlignedArray* out) {
+  _SingleArrayFunction_param(a.size, out->ptr, a.ptr, std::pow, val);
+}
+
+void EwiseMaximum(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
+  _DoubleArrayFunction(a.size, out->ptr, a.ptr, b.ptr, std::max);
+}
+
+void ScalarMaximum(const AlignedArray& a, scalar_t val, AlignedArray* out) {
+  _SingleArrayFunction_param(a.size, out->ptr, a.ptr, std::max, val);
+}
+
+void EwiseEq(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
+  _DoubleArrayOperation(a.size, out->ptr, a.ptr, ==, b.ptr);
+}
+
+void ScalarEq(const AlignedArray& a, scalar_t val, AlignedArray* out) {
+  _SingleArrayOperation(a.size, out->ptr, a.ptr, ==, val);
+}
+
+void EwiseGe(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
+  _DoubleArrayOperation(a.size, out->ptr, a.ptr, >=, b.ptr);
+}
+
+void ScalarGe(const AlignedArray& a, scalar_t val, AlignedArray* out) {
+  _SingleArrayOperation(a.size, out->ptr, a.ptr, >=, val);
+}
+
+void EwiseLog(const AlignedArray& a, AlignedArray* out) {
+  _SingleArrayFunction(a.size, out->ptr, a.ptr, std::log);
+}
+
+void EwiseExp(const AlignedArray& a, AlignedArray* out) {
+  _SingleArrayFunction(a.size, out->ptr, a.ptr, std::exp);
+}
+
+void EwiseTanh(const AlignedArray& a, AlignedArray* out) {
+  _SingleArrayFunction(a.size, out->ptr, a.ptr, std::tanh);
+}
 
 void Matmul(const AlignedArray& a, const AlignedArray& b, AlignedArray* out, uint32_t m, uint32_t n,
             uint32_t p) {
@@ -340,22 +409,22 @@ PYBIND11_MODULE(ndarray_backend_cpu, m) {
   m.def("ewise_add", EwiseAdd);
   m.def("scalar_add", ScalarAdd);
 
-  // m.def("ewise_mul", EwiseMul);
-  // m.def("scalar_mul", ScalarMul);
-  // m.def("ewise_div", EwiseDiv);
-  // m.def("scalar_div", ScalarDiv);
-  // m.def("scalar_power", ScalarPower);
+  m.def("ewise_mul", EwiseMul);
+  m.def("scalar_mul", ScalarMul);
+  m.def("ewise_div", EwiseDiv);
+  m.def("scalar_div", ScalarDiv);
+  m.def("scalar_power", ScalarPower);
 
-  // m.def("ewise_maximum", EwiseMaximum);
-  // m.def("scalar_maximum", ScalarMaximum);
-  // m.def("ewise_eq", EwiseEq);
-  // m.def("scalar_eq", ScalarEq);
-  // m.def("ewise_ge", EwiseGe);
-  // m.def("scalar_ge", ScalarGe);
+  m.def("ewise_maximum", EwiseMaximum);
+  m.def("scalar_maximum", ScalarMaximum);
+  m.def("ewise_eq", EwiseEq);
+  m.def("scalar_eq", ScalarEq);
+  m.def("ewise_ge", EwiseGe);
+  m.def("scalar_ge", ScalarGe);
 
-  // m.def("ewise_log", EwiseLog);
-  // m.def("ewise_exp", EwiseExp);
-  // m.def("ewise_tanh", EwiseTanh);
+  m.def("ewise_log", EwiseLog);
+  m.def("ewise_exp", EwiseExp);
+  m.def("ewise_tanh", EwiseTanh);
 
   // m.def("matmul", Matmul);
   // m.def("matmul_tiled", MatmulTiled);

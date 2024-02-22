@@ -406,9 +406,20 @@ void EwiseTanh(const CudaArray& a, CudaArray* out) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+__global__ void MatmulKernel(uint32_t M, uint32_t K, uint32_t N, const scalar_t* a, const scalar_t* b, scalar_t* out) {
+    uint32_t tn = blockIdx.x * blockDim.x + threadIdx.x;
+    uint32_t tm = blockIdx.y * blockDim.y + threadIdx.y;
+    if (tm >= M || tn >= N) return;
+    out[tm * N + tn] += 0.0f;
+    scalar_t temp = 0;
+    for (size_t k = 0; k < K; ++k) {
+      temp += a[tm * K + k] * b[k * N + tn];
+    }
+    out[tm * N + tn] = temp;
+}
 
-void Matmul(const CudaArray& a, const CudaArray& b, CudaArray* out, uint32_t M, uint32_t N,
-            uint32_t P) {
+void Matmul(const CudaArray& a, const CudaArray& b, CudaArray* out, uint32_t M, uint32_t K,
+            uint32_t N) {
   /**
    * Multiply two (compact) matrices into an output (also comapct) matrix.  You will want to look
    * at the lecture and notes on GPU-based linear algebra to see how to do this.  Since ultimately
@@ -423,16 +434,22 @@ void Matmul(const CudaArray& a, const CudaArray& b, CudaArray* out, uint32_t M, 
    * 
    *
    * Args:
-   *   a: compact 2D array of size m x n
-   *   b: comapct 2D array of size n x p
+   *   a: compact 2D array of size m x k
+   *   b: comapct 2D array of size k x n
    *   out: compact 2D array of size m x p to write the output to
    *   M: rows of a / out
-   *   N: columns of a / rows of b
-   *   P: columns of b / out
+   *   K: columns of a / rows of b
+   *   N: columns of b / out
    */
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+    int blockdimx = 32;
+    int blockdimy = 4;
+    dim3 blockshape(blockdimx, blockdimy);
+    dim3 gridshape((N + blockdimx - 1) / blockdimx, (M + blockdimy - 1) / blockdimy);
+    MatmulKernel<<<gridshape, blockshape>>>(
+        M, K, N, a, b, out
+    );
   /// END SOLUTION
 }
 
@@ -440,6 +457,16 @@ void Matmul(const CudaArray& a, const CudaArray& b, CudaArray* out, uint32_t M, 
 // Max and sum reductions
 ////////////////////////////////////////////////////////////////////////////////
 
+__global__ void ReduceMaxKernel(const scalar_t* a, scalar_t* out, size_t size, size_t reduce_size) {
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (gid > size) return;
+  size_t offset = gid * reduce_size
+  scalar_t res = a[offset];
+  for (int i = 1; i < reduce_size; ++i) {
+    res = max(res, a[offset + i]);
+  }
+  out[gid] = res;
+}
 
 void ReduceMax(const CudaArray& a, CudaArray* out, size_t reduce_size) {
   /**
@@ -452,11 +479,21 @@ void ReduceMax(const CudaArray& a, CudaArray* out, size_t reduce_size) {
    *   redice_size: size of the dimension to reduce over
    */
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  CudaDims dim = CudaOneDim(out->size);
+  ReduceMaxKernel<<<dim.grid, dim.block>>>(a.ptr, out->ptr, out->size, reduce_size);
   /// END SOLUTION
 }
 
-
+__global__ void ReduceSumKernel(const scalar_t* a, scalar_t* out, size_t size, size_t reduce_size) {
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (gid > size) return;
+  size_t offset = gid * reduce_size
+  scalar_t res = a[offset];
+  for (int i = 1; i < reduce_size; ++i) {
+    res += a[offset + i];
+  }
+  out[gid] = res;
+}
 
 void ReduceSum(const CudaArray& a, CudaArray* out, size_t reduce_size) {
   /**
@@ -469,7 +506,8 @@ void ReduceSum(const CudaArray& a, CudaArray* out, size_t reduce_size) {
    *   redice_size: size of the dimension to reduce over
    */
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  CudaDims dim = CudaOneDim(out->size);
+  ReduceSumKernel<<<dim.grid, dim.block>>>(a.ptr, out->ptr, out->size, reduce_size);
   /// END SOLUTION
 }
 
@@ -538,8 +576,8 @@ PYBIND11_MODULE(ndarray_backend_cuda, m) {
   m.def("ewise_exp", EwiseExp);
   m.def("ewise_tanh", EwiseTanh);
 
-  // m.def("matmul", Matmul);
+  m.def("matmul", Matmul);
 
-  // m.def("reduce_max", ReduceMax);
-  // m.def("reduce_sum", ReduceSum);
+  m.def("reduce_max", ReduceMax);
+  m.def("reduce_sum", ReduceSum);
 }

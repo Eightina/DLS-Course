@@ -320,7 +320,6 @@ inline void AlignedDot(const float* __restrict__ a,
   out = (float*)__builtin_assume_aligned(out, TILE * ELEM_SIZE);
 
   /// BEGIN SOLUTION
-  memset(out, 0.0f, TILE * TILE * sizeof(float));
   for (size_t k = 0; k < TILE; ++k) {
       for (size_t i = 0; i < TILE; ++i) {
           float r1 = a[i * TILE + k];

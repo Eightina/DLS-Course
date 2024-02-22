@@ -200,31 +200,31 @@ void ScalarSetitem(size_t size, scalar_t val, CudaArray* out, std::vector<int32_
 // Elementwise and scalar operations
 ////////////////////////////////////////////////////////////////////////////////
 
-__global__ void EwiseAddKernel(const scalar_t* a, const scalar_t* b, scalar_t* out, size_t size) {
-  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
-  if (gid < size) out[gid] = a[gid] + b[gid];
-}
+// __global__ void EwiseAddKernel(const scalar_t* a, const scalar_t* b, scalar_t* out, size_t size) {
+//   size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+//   if (gid < size) out[gid] = a[gid] + b[gid];
+// }
 
-void EwiseAdd(const CudaArray& a, const CudaArray& b, CudaArray* out) {
-  /**
-   * Add together two CUDA array
-   */
-  CudaDims dim = CudaOneDim(out->size);
-  EwiseAddKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size);
-}
+// void EwiseAdd(const CudaArray& a, const CudaArray& b, CudaArray* out) {
+//   /**
+//    * Add together two CUDA array
+//    */
+//   CudaDims dim = CudaOneDim(out->size);
+//   EwiseAddKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size);
+// }
 
-__global__ void ScalarAddKernel(const scalar_t* a, scalar_t val, scalar_t* out, size_t size) {
-  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
-  if (gid < size) out[gid] = a[gid] + val;
-}
+// __global__ void ScalarAddKernel(const scalar_t* a, scalar_t val, scalar_t* out, size_t size) {
+//   size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+//   if (gid < size) out[gid] = a[gid] + val;
+// }
 
-void ScalarAdd(const CudaArray& a, scalar_t val, CudaArray* out) {
-  /**
-   * Add together a CUDA array and a scalar value.
-   */
-  CudaDims dim = CudaOneDim(out->size);
-  ScalarAddKernel<<<dim.grid, dim.block>>>(a.ptr, val, out->ptr, out->size);
-}
+// void ScalarAdd(const CudaArray& a, scalar_t val, CudaArray* out) {
+//   /**
+//    * Add together a CUDA array and a scalar value.
+//    */
+//   CudaDims dim = CudaOneDim(out->size);
+//   ScalarAddKernel<<<dim.grid, dim.block>>>(a.ptr, val, out->ptr, out->size);
+// }
 
 /**
  * In the code the follows, use the above template to create analogous elementise
@@ -246,9 +246,164 @@ void ScalarAdd(const CudaArray& a, scalar_t val, CudaArray* out) {
  * signatures above.
  */
 
+#define _CudaSingleArrayOperation(iters, outptr, inptr, operation, val)               \
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;                             \
+  if (gid < size) outptr[gid] = inptr[gid] operation val;
+
+#define _CudaSingleArrayFunction(iters, outptr, inptr, function)                      \
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;                             \
+  if (gid < size) outptr[gid] = function(inptr[gid]);
+
+#define _CudaSingleArrayFunction_param(iters, outptr, inptr, function, val)           \
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;                             \
+  if (gid < size) outptr[gid] = function(inptr[gid], val);
+
+#define _CudaDoubleArrayOperation(iters, outptr, inptr0, operation, inptr1)           \
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;                             \
+  if (gid < size) outptr[gid] = inptr0[gid] operation inptr1[gid];
+
+#define _CudaDoubleArrayFunction(iters, outptr, inptr0, inptr1, function)             \
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;                             \
+  if (gid < size) outptr[gid] = function(inptr0[gid], inptr1[gid]);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Elementwise and scalar operations
+
+__global__ void EwiseAddKernel(const scalar_t* a, const scalar_t* b, scalar_t* out, size_t size) {
+  _CudaDoubleArrayOperation(size, out, a, +, b);
+}
+__global__ void ScalarAddKernel(const scalar_t* a, scalar_t val, scalar_t* out, size_t size) {
+  _CudaSingleArrayOperation(size, out, a, +, val);
+}
+__global__ void EwiseMulKernel(const scalar_t* a, const scalar_t* b, scalar_t* out, size_t size) {
+  _CudaDoubleArrayOperation(size, out, a, *, b);
+}
+__global__ void ScalarMulKernel(const scalar_t* a, scalar_t val, scalar_t* out, size_t size) {
+  _CudaSingleArrayOperation(size, out, a, *, val);
+}
+__global__ void EwiseDivKernel(const scalar_t* a, const scalar_t* b, scalar_t* out, size_t size) {
+  _CudaDoubleArrayOperation(size, out, a, /, b);
+}
+__global__ void ScalarDivKernel(const scalar_t* a, scalar_t val, scalar_t* out, size_t size) {
+  _CudaSingleArrayOperation(size, out, a, /, val);
+}
+__global__ void ScalarPowerKernel(const scalar_t* a, scalar_t val, scalar_t* out, size_t size) {
+  _CudaSingleArrayFunction_param(size, out, a, pow, val);
+}
+__global__ void EwiseMaximumKernel(const scalar_t* a, const scalar_t* b, scalar_t* out, size_t size) {
+  _CudaDoubleArrayFunction(size, out, a, b, max);
+}
+__global__ void ScalarMaximumKernel(const scalar_t* a, scalar_t val, scalar_t* out, size_t size) {
+  _CudaSingleArrayFunction_param(size, out, a, max, val);
+}
+__global__ void EwiseEqKernel(const scalar_t* a, const scalar_t* b, scalar_t* out, size_t size) {
+  _CudaDoubleArrayOperation(size, out, a, ==, b);
+}
+__global__ void ScalarEqKernel(const scalar_t* a, scalar_t val, scalar_t* out, size_t size) {
+  _CudaSingleArrayOperation(size, out, a, ==, val);
+}
+__global__ void EwiseGeKernel(const scalar_t* a, const scalar_t* b, scalar_t* out, size_t size) {
+  _CudaDoubleArrayOperation(size, out, a, >=, b);
+}
+__global__ void ScalarGeKernel(const scalar_t* a, scalar_t val, scalar_t* out, size_t size) {
+  _CudaSingleArrayOperation(size, out, a, >=, val);
+}
+__global__ void EwiseLogKernel(const scalar_t* a, scalar_t* out, size_t size) {
+  _CudaSingleArrayFunction(size, out, a, log);
+}
+__global__ void EwiseExpKernel(const scalar_t* a, scalar_t* out, size_t size) {
+  _CudaSingleArrayFunction(size, out, a, exp);
+}
+__global__ void EwiseTanhKernel(const scalar_t* a, scalar_t* out, size_t size) {
+  _CudaSingleArrayFunction(size, out, a, tanh);
+}
+
+void EwiseAdd(const CudaArray& a, const CudaArray& b, CudaArray* out) {
+  /**
+   * Add together two CUDA array
+   */
+  CudaDims dim = CudaOneDim(out->size);
+  EwiseAddKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size);
+}
+
+void ScalarAdd(const CudaArray& a, scalar_t val, CudaArray* out) {
+  /**
+   * Add together a CUDA array and a scalar value.
+   */
+  CudaDims dim = CudaOneDim(out->size);
+  ScalarAddKernel<<<dim.grid, dim.block>>>(a.ptr, val, out->ptr, out->size);
+}
+
+void EwiseMul(const CudaArray& a, const CudaArray& b, CudaArray* out) {
+  CudaDims dim = CudaOneDim(out->size);
+  EwiseMulKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size);
+}
+
+void ScalarMul(const CudaArray& a, scalar_t val, CudaArray* out) {
+  CudaDims dim = CudaOneDim(out->size);
+  ScalarMulKernel<<<dim.grid, dim.block>>>(a.ptr, val, out->ptr, out->size);
+}
+
+void EwiseDiv(const CudaArray& a, const CudaArray& b, CudaArray* out) {
+  CudaDims dim = CudaOneDim(out->size);
+  EwiseDivKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size);
+}
+
+void ScalarDiv(const CudaArray& a, scalar_t val, CudaArray* out) {
+  CudaDims dim = CudaOneDim(out->size);
+  ScalarDivKernel<<<dim.grid, dim.block>>>(a.ptr, val, out->ptr, out->size);
+}
+
+void ScalarPower(const CudaArray& a, scalar_t val, CudaArray* out) {
+  CudaDims dim = CudaOneDim(out->size);
+  ScalarPowerKernel<<<dim.grid, dim.block>>>(a.ptr, val, out->ptr, out->size);
+}
+
+void EwiseMaximum(const CudaArray& a, const CudaArray& b, CudaArray* out) {
+  CudaDims dim = CudaOneDim(out->size);
+  EwiseMaximumKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size);
+}
+
+void ScalarMaximum(const CudaArray& a, scalar_t val, CudaArray* out) {
+  CudaDims dim = CudaOneDim(out->size);
+  ScalarMaximumKernel<<<dim.grid, dim.block>>>(a.ptr, val, out->ptr, out->size);
+}
+
+void EwiseEq(const CudaArray& a, const CudaArray& b, CudaArray* out) {
+  CudaDims dim = CudaOneDim(out->size);
+  EwiseEqKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size);
+}
+
+void ScalarEq(const CudaArray& a, scalar_t val, CudaArray* out) {
+  CudaDims dim = CudaOneDim(out->size);
+  ScalarEqKernel<<<dim.grid, dim.block>>>(a.ptr, val, out->ptr, out->size);
+}
+
+void EwiseGe(const CudaArray& a, const CudaArray& b, CudaArray* out) {
+  CudaDims dim = CudaOneDim(out->size);
+  EwiseGeKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size);
+}
+
+void ScalarGe(const CudaArray& a, scalar_t val, CudaArray* out) {
+  CudaDims dim = CudaOneDim(out->size);
+  ScalarGeKernel<<<dim.grid, dim.block>>>(a.ptr, val, out->ptr, out->size);
+}
+
+void EwiseLog(const CudaArray& a, CudaArray* out) {
+  CudaDims dim = CudaOneDim(out->size);
+  EwiseLogKernel<<<dim.grid, dim.block>>>(a.ptr, out->ptr, out->size);
+}
+
+void EwiseExp(const CudaArray& a, CudaArray* out) {
+  CudaDims dim = CudaOneDim(out->size);
+  EwiseExpKernel<<<dim.grid, dim.block>>>(a.ptr, out->ptr, out->size);
+}
+
+void EwiseTanh(const CudaArray& a, CudaArray* out) {
+  CudaDims dim = CudaOneDim(out->size);
+  EwiseTanhKernel<<<dim.grid, dim.block>>>(a.ptr, out->ptr, out->size);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 
@@ -366,22 +521,22 @@ PYBIND11_MODULE(ndarray_backend_cuda, m) {
   m.def("ewise_add", EwiseAdd);
   m.def("scalar_add", ScalarAdd);
 
-  // m.def("ewise_mul", EwiseMul);
-  // m.def("scalar_mul", ScalarMul);
-  // m.def("ewise_div", EwiseDiv);
-  // m.def("scalar_div", ScalarDiv);
-  // m.def("scalar_power", ScalarPower);
+  m.def("ewise_mul", EwiseMul);
+  m.def("scalar_mul", ScalarMul);
+  m.def("ewise_div", EwiseDiv);
+  m.def("scalar_div", ScalarDiv);
+  m.def("scalar_power", ScalarPower);
 
-  // m.def("ewise_maximum", EwiseMaximum);
-  // m.def("scalar_maximum", ScalarMaximum);
-  // m.def("ewise_eq", EwiseEq);
-  // m.def("scalar_eq", ScalarEq);
-  // m.def("ewise_ge", EwiseGe);
-  // m.def("scalar_ge", ScalarGe);
+  m.def("ewise_maximum", EwiseMaximum);
+  m.def("scalar_maximum", ScalarMaximum);
+  m.def("ewise_eq", EwiseEq);
+  m.def("scalar_eq", ScalarEq);
+  m.def("ewise_ge", EwiseGe);
+  m.def("scalar_ge", ScalarGe);
 
-  // m.def("ewise_log", EwiseLog);
-  // m.def("ewise_exp", EwiseExp);
-  // m.def("ewise_tanh", EwiseTanh);
+  m.def("ewise_log", EwiseLog);
+  m.def("ewise_exp", EwiseExp);
+  m.def("ewise_tanh", EwiseTanh);
 
   // m.def("matmul", Matmul);
 

@@ -448,7 +448,7 @@ void Matmul(const CudaArray& a, const CudaArray& b, CudaArray* out, uint32_t M, 
     dim3 blockshape(blockdimx, blockdimy);
     dim3 gridshape((N + blockdimx - 1) / blockdimx, (M + blockdimy - 1) / blockdimy);
     MatmulKernel<<<gridshape, blockshape>>>(
-        M, K, N, a, b, out
+        M, K, N, a.ptr, b.ptr, out->ptr
     );
   /// END SOLUTION
 }
@@ -460,7 +460,7 @@ void Matmul(const CudaArray& a, const CudaArray& b, CudaArray* out, uint32_t M, 
 __global__ void ReduceMaxKernel(const scalar_t* a, scalar_t* out, size_t size, size_t reduce_size) {
   size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
   if (gid > size) return;
-  size_t offset = gid * reduce_size
+  size_t offset = gid * reduce_size;
   scalar_t res = a[offset];
   for (int i = 1; i < reduce_size; ++i) {
     res = max(res, a[offset + i]);
@@ -487,7 +487,7 @@ void ReduceMax(const CudaArray& a, CudaArray* out, size_t reduce_size) {
 __global__ void ReduceSumKernel(const scalar_t* a, scalar_t* out, size_t size, size_t reduce_size) {
   size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
   if (gid > size) return;
-  size_t offset = gid * reduce_size
+  size_t offset = gid * reduce_size;
   scalar_t res = a[offset];
   for (int i = 1; i < reduce_size; ++i) {
     res += a[offset + i];
